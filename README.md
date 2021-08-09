@@ -1,3 +1,4 @@
+![](ANSVagrant-1.png)
 
 # Ansible controller and agent nodes set up guide
 - Clone this repo and run `vagrant up`
