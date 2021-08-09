@@ -65,3 +65,78 @@ Vagrant.configure("2") do |config|
 
 end
 ```
+# Working with Ansible
+SSH into the controller with `vagrant ssh controller`
+We'll update/install dependecies:
+- `sudo apt-get update -y`
+- `sudo apt-get install software-properties-common`
+- `sudo apt-add-repository ppa:ansible/ansible`
+- `sudo apt-get update`
+- `sudo apt-get install ansible`
+
+Now check Hosts:
+- `cd /etc/ansible/`
+- `sudo apt-get install tree`
+- `tree`
+- `ansible all -m ping`
+Add hosts:
+- `sudo nano hosts`
+- Add 
+```
+[web]
+192.168.33.10 ansible_connection=ssh ansible_ssh_user=vagrant ansible_ssh_pass=vagrant
+
+[db]
+192.168.33.11 ansible_connection=ssh ansible_ssh_user=vagrant ansible_ssh_pass=vagrant
+ ```
+
+Check all the servers:
+- `ansible all -a "uname -a"` # Check names
+- `ansible all -a "date"`     # Check dates
+- `ansible all -a "free -m"`  # Check memory
+
+Make a YAML Playbook file (TAB doesn't work - yet indentation matters):
+- `sudo nano nginx_playbook.yml`
+- Add:
+```
+# A playbook to install and set up Nginx
+# A YAML file need to start with 3 dashes
+
+---
+# Name of the hosts - needs to be defined in hosts file
+- hosts: web
+
+# Find the facts about the hosts
+  gather_facts: yes
+
+# We need admin access
+  become: true
+
+# Add instructions using tasks module in ansible
+  tasks:
+  - name: install nginx
+
+# Install nginx
+    apt: pkg=nginx state=present update_cache=yes
+
+# Ensure its running/active
+    notify:
+    - restart nginx
+  - name: Allow all access to tcp port 80
+    ufw:
+      rule: allow
+      port: '80'
+      proto: tcp
+
+  handlers:
+    - name: Restart Nginx
+      service:
+        name: nginx
+        state: restarted
+
+# Update cache
+# Restart nginx if needed like reverse proxy
+```
+- `ansible-playbook nginx_playbook.yml`
+- `ansible web -m shell -a "systemctl status nginx"`
+
