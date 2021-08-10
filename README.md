@@ -313,3 +313,26 @@ Copy app from local to VM:
        pm2 kill
        pm2 start app.js
 ```
+
+# Moving to cloud
+Install dependencies in controller
+- `sudo apt-get install python3-pip`
+- `sudo pip3 install awscli`
+- `sudo pip3 install boto boto3`
+- `cd etc/ansible`
+- `sudo mkdir group_vars`
+- `cd group_vars`
+- `sudo mkdir all`
+- `cd all`
+- `sudo ansible-vault create pass.yml`
+```
+Choose a password and add:
+
+aws_access_key: ************
+aws_secret_key: ************
+```
+- `ansible-vault edit pass.yml` if we would like to edit the file
+
+## Create new Playbook to run EC2 instances in AWS for us
+work in progress...
+- `ansible-playbook create_ec2.yml --ask-vault-pass --tags create_ec2`
