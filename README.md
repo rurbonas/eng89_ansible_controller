@@ -65,6 +65,26 @@ Vagrant.configure("2") do |config|
 
 end
 ```
+
+# Why Ansible?
+
+    It is the fastest growing python-based open source IT automation tool that can be used to configure/manage systems, deploy applications and provision infrastructure on numerous cloud platforms.
+
+Benefits :
+
+    Save time
+    Open source
+    Makes configuration management predictable
+    Cost effective
+
+Why use it:
+
+    Ansible is angentless because we only need to have ansible installed on the controller.
+    We connect using SSH - this also adds to its simplicity
+
+
+![](ansdiagram.JPG)
+
 # Working with Ansible
 SSH into the controller with `vagrant ssh controller`
 We'll update/install dependecies:
