@@ -119,7 +119,7 @@ Check all the servers:
 ### Install nginx in web
 - `sudo nano nginx_playbook.yml`
 - Add:
-```
+```YAML
 # A playbook to install and set up Nginx
 # A YAML file need to start with 3 dashes
 
@@ -168,7 +168,7 @@ Copy app from local to VM:
 ### Installing mongodb
 - `sudo nano mongodb_playbook.yml`
 - Add:
-```
+```YAML
 # This is a YAML file to install nginx onto oue web VM using YAML
 ---
 
@@ -216,7 +216,7 @@ Copy app from local to VM:
 ### Installing node and running app
 - `sudo nano node_run.yml`
 - Add:
-```
+```YAML
 
 # This is a playbook to install and set up Nginx in our web server (192.168.33.10)
 # This playbook is written in YAML and YAML starts with three dashes (front matter)
@@ -303,16 +303,18 @@ Copy app from local to VM:
      blockinfile:
        path: .bashrc
        block: |
-         DB_HOST=mongodb://192.168.33.11:27017/posts
+         DB_HOST=192.168.33.11:27017/posts
    - name: "starting node.js"
      shell: |
        source ~/.bashrc
        cd app/
        npm install
+       npm install -g pm2
        node seeds/seed.js
        pm2 kill
        pm2 start app.js
 ```
+![](ans_workflow.png)
 
 # Moving to cloud
 Install dependencies in controller
@@ -334,5 +336,140 @@ aws_secret_key: ************
 - `ansible-vault edit pass.yml` if we would like to edit the file
 
 ## Create new Playbook to run EC2 instances in AWS for us
-work in progress...
-- `ansible-playbook create_ec2.yml --ask-vault-pass --tags create_ec2`
+- Copy the `eng89_devops.pem` file to our controller so it can communicate with AWS
+- `sudo scp -i eng89_devops.pem eng89_devops.pem vagrant@192.168.33.12:~/.ssh/`
+- SSH into our controller
+- in `.ssh` directory run `ssh-keygen -t rsa -C "your_email@example.com"` to generate a public key. It will prompt you to name it, we can use `eng89_devops` to match the pem file
+- In `/etc/Ansible` directory add the following to `hosts`:
+```YAML
+[awsdb]
+ubuntu ansible_host=54.194.90.31 ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/eng89_devops.pem
+
+[awsweb]
+ubuntu ansible_host=34.243.71.83 ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/eng89_devops.pem
+```
+App
+- `sudo nano create_ec2_app.yml` and paste the following:
+```YAML
+---
+- hosts: localhost
+  connection: local
+  gather_facts: True
+  become: True
+  vars:
+    key_name: eng89_devops
+    region: eu-west-1
+    image: ami-03360601231433d7a
+    id: "eng89 launch an aws ec2 instance app"
+    sec_group: "sg-098f261f407f87b69"
+    subnet_id: "subnet-0429d69d55dfad9d2"
+    ansible_python_interpreter: /usr/bin/python3
+  tasks:
+
+    - name: facts
+      block:
+
+      - name: get instance gather_facts
+        ec2_instance_facts:
+          aws_access_key: "{{aws_access_key}}"
+          aws_secret_key: "{{aws_secret_key}}"
+          region: "{{ region }}"
+        register: result
+
+    - name: provisioning ec2 instances
+      block:
+
+      - name: upload public key to aws_access_key
+        ec2_key:
+          name: "{{ key_name }}"
+          key_material: "{{ lookup('file', '~/.ssh/{{ key_name }}.pub') }}"
+          region: "{{ region }}"
+          aws_access_key: "{{aws_access_key}}"
+          aws_secret_key: "{{aws_secret_key}}"
+
+      - name: provision instance
+        ec2:
+          aws_access_key: "{{aws_access_key}}"
+          aws_secret_key: "{{aws_secret_key}}"
+          assign_public_ip: True
+          key_name: "{{ key_name }}"
+          id: "{{ id }}"
+          vpc_subnet_id: "{{ subnet_id }}"
+          group_id: "{{ sec_group }}"
+          image: "{{ image }}"
+          instance_type: t2.micro
+          region: "{{ region }}"
+          wait: True
+          count: 1
+          instance_tags:
+            Name: eng89_ron_ansible_playbook_app
+
+      tags: ['never', 'create_ec2_app']
+```
+- To run the playbook with our AWS keys `sudo ansible-playbook create_ec2_app.yml --ask-vault-pass --tags create_ec2_app`
+
+DB
+- `sudo nano create_ec2_db.yml` and paste the following:
+```YAML
+---
+- hosts: localhost
+  connection: local
+  gather_facts: True
+  become: True
+  vars:
+    key_name: eng89_devops
+    region: eu-west-1
+    image: ami-0c0b30eded2ee2098
+    id: "eng89 ansible playbook to launch an aws ec2 instance"
+    sec_group: "sg-098f261f407f87b69"
+    subnet_id: "subnet-0429d69d55dfad9d2"
+    ansible_python_interpreter: /usr/bin/python3
+  tasks:
+
+    - name: facts
+      block:
+
+      - name: get instance gather_facts
+        ec2_instance_facts:
+          aws_access_key: "{{aws_access_key}}"
+          aws_secret_key: "{{aws_secret_key}}"
+          region: "{{ region }}"
+        register: result
+
+    - name: provisioning ec2 instances
+      block:
+
+      - name: upload public key to aws_access_key
+        ec2_key:
+          name: "{{ key_name }}"
+          key_material: "{{ lookup('file', '~/.ssh/{{ key_name }}.pub') }}"
+          region: "{{ region }}"
+          aws_access_key: "{{aws_access_key}}"
+          aws_secret_key: "{{aws_secret_key}}"
+
+      - name: provision instance
+        ec2:
+          aws_access_key: "{{aws_access_key}}"
+          aws_secret_key: "{{aws_secret_key}}"
+          assign_public_ip: True
+          key_name: "{{ key_name }}"
+          id: "{{ id }}"
+          vpc_subnet_id: "{{ subnet_id }}"
+          group_id: "{{ sec_group }}"
+          image: "{{ image }}"
+          instance_type: t2.micro
+          region: "{{ region }}"
+          wait: True
+          count: 1
+          instance_tags:
+            Name: eng89_ron_ansible_playbook_db
+            
+      tags: ['never', 'create_ec2']
+```
+- To run the playbook with our AWS keys `sudo ansible-playbook create_ec2_db.yml --ask-vault-pass --tags create_ec2_db`
+
+# Troubleshooting
+If app is still running in the background and port 3000 is in use:
+- ssh to awsweb
+- `ps aux`
+- `sudo kill [number]` find the number that corresponds to pm2
